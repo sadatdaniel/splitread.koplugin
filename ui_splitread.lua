@@ -22,6 +22,13 @@ local LANGUAGES = {
 
 local FONT_SIZES = {10, 12, 14, 16, 18, 20, 22}
 
+local PANEL_SIZES = {
+    { ratio = 0.25, name = "Small (25%)" },
+    { ratio = 0.35, name = "Medium (35%)" },
+    { ratio = 0.45, name = "Large (45%)" },
+}
+
+
 local UI = {}
 
 function UI:getLanguageName(code)
@@ -31,6 +38,15 @@ function UI:getLanguageName(code)
         end
     end
     return code:upper()
+end
+
+function UI:getPanelSizeName(ratio)
+    for _, size in ipairs(PANEL_SIZES) do
+        if size.ratio == ratio then
+            return size.name
+        end
+    end
+    return tostring(math.floor(ratio * 100)) .. "%"
 end
 
 function UI:showLanguagePicker(title, current_code, on_select, on_done)
@@ -60,7 +76,6 @@ function UI:showFontSizePicker(current_size, on_select, on_done)
     local font_dialog
     local buttons = {}
 
-    -- warning note at top
     table.insert(buttons, {
         {
             text = "⚠ Larger fonts may cut off translation text",
@@ -89,7 +104,39 @@ function UI:showFontSizePicker(current_size, on_select, on_done)
     UIManager:show(font_dialog)
 end
 
-function UI:showSettingsDialog(config, Config, on_refresh)
+function UI:showPanelSizePicker(current_ratio, on_select, on_done)
+    local panel_dialog
+    local buttons = {}
+
+    table.insert(buttons, {
+        {
+            text = "⚠ Reopen book to apply panel size change",
+            callback = function() end,
+        }
+    })
+
+    for _, size in ipairs(PANEL_SIZES) do
+        local is_current = size.ratio == current_ratio
+        table.insert(buttons, {
+            {
+                text = (is_current and "✓ " or "  ") .. size.name,
+                callback = function()
+                    UIManager:close(panel_dialog)
+                    on_select(size.ratio)
+                    on_done()
+                end,
+            }
+        })
+    end
+
+    panel_dialog = ButtonDialogTitle:new{
+        title = "Panel Size",
+        buttons = buttons,
+    }
+    UIManager:show(panel_dialog)
+end
+
+function UI:showSettingsDialog(config, Config, on_refresh, on_panel_resize)
     logger.info("splitread: showSettingsDialog called")
 
     if self.current_dialog then
@@ -97,7 +144,6 @@ function UI:showSettingsDialog(config, Config, on_refresh)
         self.current_dialog = nil
     end
 
-    -- small delay to let close complete before showing new dialog
     UIManager:scheduleIn(0.1, function()
         local dialog
         dialog = ButtonDialogTitle:new{
@@ -116,7 +162,7 @@ function UI:showSettingsDialog(config, Config, on_refresh)
                                     Config:save(config)
                                 end,
                                 function()
-                                    self:showSettingsDialog(config, Config, on_refresh)
+                                    self:showSettingsDialog(config, Config, on_refresh, on_panel_resize)
                                 end
                             )
                         end,
@@ -135,7 +181,7 @@ function UI:showSettingsDialog(config, Config, on_refresh)
                                     Config:save(config)
                                 end,
                                 function()
-                                    self:showSettingsDialog(config, Config, on_refresh)
+                                    self:showSettingsDialog(config, Config, on_refresh, on_panel_resize)
                                 end
                             )
                         end,
@@ -148,7 +194,7 @@ function UI:showSettingsDialog(config, Config, on_refresh)
                             config.auto_translate = not config.auto_translate
                             Config:save(config)
                             UIManager:close(dialog)
-                            self:showSettingsDialog(config, Config, on_refresh)
+                            self:showSettingsDialog(config, Config, on_refresh, on_panel_resize)
                         end,
                     },
                 },
@@ -162,22 +208,42 @@ function UI:showSettingsDialog(config, Config, on_refresh)
                                 function(size)
                                     config.font_size = size
                                     Config:save(config)
-                                    on_refresh()
                                 end,
                                 function()
-                                    self:showSettingsDialog(config, Config, on_refresh)
+                                    self:showSettingsDialog(config, Config, on_refresh, on_panel_resize)
                                 end
                             )
                         end,
                     },
                 },
-                
+                {
+                    {
+                        text = "Panel size: " .. self:getPanelSizeName(config.panel_height_ratio),
+                        callback = function()
+                            UIManager:close(dialog)
+                            self:showPanelSizePicker(
+                                config.panel_height_ratio,
+                                function(ratio)
+                                    config.panel_height_ratio = ratio
+                                    Config:save(config)
+                                    if on_panel_resize then
+                                        on_panel_resize(ratio)
+                                    end
+                                end,
+                                function()
+                                    self:showSettingsDialog(config, Config, on_refresh, on_panel_resize)
+                                end
+                            )
+                        end,
+                    },
+                },
                 {
                     {
                         text = "Close",
                         callback = function()
                             UIManager:close(dialog)
                             self.current_dialog = nil
+                            
                         end,
                     },
                 },

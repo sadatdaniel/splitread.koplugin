@@ -294,16 +294,20 @@ function splitread:getPanelGearRegion()
 end
 
 function splitread:showSettingsDialog()
-    -- safety net: if config failed to load during init, try again now
     if not self.config then
         self.config = Config:load()
     end
-    UI:showSettingsDialog(self.config, Config, function()
-        self:refreshPanel()
-    end)
+    UI:showSettingsDialog(self.config, Config,
+        function()
+            self:refreshPanel()
+        end,
+        function(new_ratio)
+        end
+    )
 end
 
 function splitread:refreshPanel()
+
     local screen_w = Screen:getWidth()
     local screen_h = Screen:getHeight()
     local footer_h = self:getFooterHeight()
@@ -360,8 +364,8 @@ function splitread:addToMainMenu(menu_items)
                     self:setEnabledForBook(not enabled)
                     if not enabled then
                         -- enabling
-                        self.is_initialized = false  -- add this
-                        self:onReaderReady()          -- add this
+                        self.is_initialized = false  
+                        self:onReaderReady()       
                     else
                         -- disabling — restore viewport
                         self.view.dimen.h = Screen:getHeight()
