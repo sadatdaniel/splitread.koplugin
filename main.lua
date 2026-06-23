@@ -121,13 +121,16 @@ function splitread:shrinkReadingArea()
     self.view.dimen.h = new_h
     self.ui.dimen.h = new_h
     local margins = self.ui.document:getPageMargins()
+    self.orig_margins = margins
+    local gap = math.floor((margins.top + margins.bottom) / 2)
+    self.panel_gap = gap
     self.ui:handleEvent(Event:new("SetPageMargins", {
         margins.left,
         margins.top,
         margins.right,
-        2,
+        gap,
     }))
-    logger.info("splitread: set bottom margin to 2")
+    logger.info("splitread: set bottom margin to", gap, "(top/2 + bottom/2)")
     self.ui:handleEvent(Event:new("SetDimensions", self.ui.dimen))
 end
 
@@ -308,26 +311,47 @@ function splitread:refreshPanel()
     local screen_h = Screen:getHeight()
     local footer_h = self:getFooterHeight()
     local panel_y = screen_h - self.panel_height - footer_h
-    local padding = 20
 
-    local ok, face = pcall(function()
-        return Font:getFace("cfont", self.config.font_size or 14)
+    -- Match the reader font; fall back to cfont if ReaderFont unavailable
+    local face
+    local ok, rf_face = pcall(function()
+        local rf = self.ui.font
+        return Font:getFace(rf.font_face, rf.font_size)
     end)
-    if not ok or not face then
-        face = Font:getFace("cfont", 14)
+    if ok and rf_face then
+        face = rf_face
+    else
+        local ok2, f = pcall(function()
+            return Font:getFace("cfont", self.config.font_size or 14)
+        end)
+        face = (ok2 and f) or Font:getFace("cfont", 14)
     end
+
+    -- Match reader left/right margins; use a small top pad (gap already handled
+    -- by the reading area's bottom margin set in shrinkReadingArea)
+    local m = self.orig_margins or {}
+    local pad_left   = m.left   or 20
+    local pad_right  = m.right  or 20
+    local pad_top    = 2
+    local pad_bottom = m.bottom and math.floor(m.bottom / 2) or 20
+    local text_w = screen_w - pad_left - pad_right
+    local text_h = self.panel_height - pad_top - pad_bottom
 
     local frame = FrameContainer:new{
         width = screen_w,
         height = self.panel_height,
         background = Blitbuffer.COLOR_WHITE,
         bordersize = 0,
-        padding = padding,
+        padding = 0,
+        padding_left   = pad_left,
+        padding_right  = pad_right,
+        padding_top    = pad_top,
+        padding_bottom = pad_bottom,
         TextBoxWidget:new{
             text = self.panel_text,
             face = face,
-            width = screen_w - (padding * 2),
-            height = self.panel_height - (padding * 2) - 20,
+            width = text_w,
+            height = text_h,
             justified = true,
         }
     }
