@@ -26,7 +26,14 @@ local splitread = InputContainer:extend{
 
 function splitread:init()
     self.ui.menu:registerToMainMenu(self)
-    self.config = Config:load()
+    local ok, config = pcall(function() return Config:load() end)
+    self.config = ok and config or {
+        source_lang = "auto",
+        target_lang = "en",
+        panel_height_ratio = 0.50,
+        auto_translate = true,
+        font_size = 14,
+    }
     self.panel_height = math.floor(Screen:getHeight() * self.config.panel_height_ratio)
 
     local tap_size = Screen:scaleByDPI(60)
@@ -287,6 +294,10 @@ function splitread:getPanelGearRegion()
 end
 
 function splitread:showSettingsDialog()
+    -- safety net: if config failed to load during init, try again now
+    if not self.config then
+        self.config = Config:load()
+    end
     UI:showSettingsDialog(self.config, Config, function()
         self:refreshPanel()
     end)

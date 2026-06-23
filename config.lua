@@ -21,7 +21,9 @@ function Config:load()
     end)
     if not ok or not settings then
         logger.info("splitread config: using defaults")
-        return defaults
+        local result = {}
+        for k, v in pairs(defaults) do result[k] = v end
+        return result
     end
     local result = {}
     for k, v in pairs(defaults) do
